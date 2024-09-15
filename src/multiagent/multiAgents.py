@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -15,6 +15,7 @@
 from util import manhattanDistance
 from game import Directions
 import random, util
+import pdb
 
 from game import Agent
 from pacman import GameState
@@ -49,9 +50,10 @@ class ReflexAgent(Agent):
         chosenIndex = random.choice(bestIndices) # Pick randomly among the best
 
         "Add more of your code here if you want to"
-
+        # pdb.set_trace()
         return legalMoves[chosenIndex]
 
+    # 注意参数之间的差距一定要偏小，因为曼哈顿距离之间的差距本来就很小，不然调整就是没有什么效果的
     def evaluationFunction(self, currentGameState: GameState, action):
         """
         Design a better evaluation function here.
@@ -75,7 +77,37 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        ghost_dis_List = []
+
+        for item in newGhostStates:
+            int_ghost_state = tuple(int(x) for x in item.getPosition())
+            g_distance = abs(newPos[0] - int_ghost_state[0]) + abs(newPos[1] - int_ghost_state[1])
+            ghost_dis_List.append(g_distance)
+            if newPos == int_ghost_state:
+                return -5000
+
+        dis_List = []
+
+        for food in newFood.asList():
+            distance = abs(newPos[0] - food[0]) + abs(newPos[1] - food[1])
+            dis_List.append(distance)
+
+        if dis_List:
+            value = 50 - min(dis_List)
+            if successorGameState.getScore() > 170 and successorGameState.getScore() < 250:
+                value += 10
+        else:
+            value = 0
+
+        if ghost_dis_List:
+            g_value = max(ghost_dis_List)
+            if g_value <= 2:
+                g_value = 0
+        else:
+            g_value = 0
+
+        # pdb.set_trace()
+        return successorGameState.getScore() + value + g_value
 
 def scoreEvaluationFunction(currentGameState: GameState):
     """
@@ -107,6 +139,7 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
+# 注意只需要返回pacman的动作，不俗要返回幽灵的动作，所以记录一个动作即可
 class MinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent (question 2)
@@ -136,7 +169,49 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        def max_value(gameState: GameState, depth):
+            if gameState.isWin() or gameState.isLose() or depth == 0:
+                return self.evaluationFunction(gameState)
+            else:
+                # pdb.set_trace()
+                v = -float('inf')
+                legalmoves = gameState.getLegalActions(0)
+                for action in legalmoves:
+                    successorGameState = gameState.generateSuccessor(0, action)
+                    v = max(v, min_value(successorGameState, depth - 1, gameState.getNumAgents() - 1))
+                # pdb.set_trace()
+                return v
+
+        def min_value(gameState: GameState, depth, left_agent_num):
+            # pdb.set_trace()
+            if gameState.isWin() or gameState.isLose() or (depth == 0 and left_agent_num == 0):
+                return self.evaluationFunction(gameState)
+            else:
+                v = float('inf')
+                agent_index = gameState.getNumAgents() - left_agent_num
+                legalmoves = gameState.getLegalActions(agent_index)
+                for action in legalmoves:
+                    successorGameState = gameState.generateSuccessor(agent_index, action)
+                    if left_agent_num == 1:
+                        v = min(v, max_value(successorGameState, depth))
+                    else:
+                        v = min(v, min_value(successorGameState, depth, left_agent_num - 1))
+                # pdb.set_trace()
+                return v
+
+        depth = self.depth
+        Value_List = []
+        Action_List = gameState.getLegalActions(0)
+        for action in Action_List:
+            successorGameState = gameState.generateSuccessor(0, action)
+            Value_List.append(min_value(successorGameState, depth - 1, gameState.getNumAgents() - 1))
+        best = max(Value_List)
+        Indices = [index for index in range(len(Value_List)) if Value_List[index] == best]
+        chosenIndex = random.choice(Indices)
+        # pdb.set_trace()
+        return Action_List[chosenIndex]
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -148,7 +223,65 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        def max_value(gameState: GameState, depth, alpha, beta):
+            if gameState.isWin() or gameState.isLose() or depth == 0:
+                # pdb.set_trace()
+                return self.evaluationFunction(gameState)
+            else:
+                # pdb.set_trace()
+                v = -float('inf')
+                legalmoves = gameState.getLegalActions(0)
+                for action in legalmoves:
+                    successorGameState = gameState.generateSuccessor(0, action)
+                    v = max(v, min_value(successorGameState, depth - 1, gameState.getNumAgents() - 1, alpha, beta))
+                    if v > beta:
+                        return v
+                    alpha = max(alpha, v)
+                # pdb.set_trace()
+                return v
+
+        def min_value(gameState: GameState, depth, left_agent_num, alpha, beta):
+            if gameState.isWin() or gameState.isLose() or (depth == 0 and left_agent_num == 0):
+                # pdb.set_trace()
+                return self.evaluationFunction(gameState)
+            else:
+                v = float('inf')
+                agent_index = gameState.getNumAgents() - left_agent_num
+                legalmoves = gameState.getLegalActions(agent_index)
+                for action in legalmoves:
+                    # pdb.set_trace()
+                    successorGameState = gameState.generateSuccessor(agent_index, action)
+                    if left_agent_num == 1:
+                        v = min(v, max_value(successorGameState, depth, alpha, beta))
+                        if v < alpha:
+                            return v
+                        beta = min(beta, v)
+                    else:
+                        v = min(v, min_value(successorGameState, depth, left_agent_num - 1, alpha, beta))
+                        if v < alpha:
+                            return v
+                        beta = min(beta, v)
+                # pdb.set_trace()
+                return v
+
+        alpha = -float('inf')
+        beta = float('inf')
+        depth = self.depth
+        Value_List = []
+        Action_List = gameState.getLegalActions(0)
+        # pdb.set_trace()
+        for action in Action_List:
+            successorGameState = gameState.generateSuccessor(0, action)
+            v = min_value(successorGameState, depth - 1, gameState.getNumAgents() - 1, alpha, beta)
+            Value_List.append(v)
+            alpha = max(alpha, v)
+        # pdb.set_trace()
+        best = max(Value_List)
+        Indices = [index for index in range(len(Value_List)) if Value_List[index] == best]
+        chosenIndex = Indices[0]
+        # pdb.set_trace()
+        return Action_List[chosenIndex]
+        # util.raiseNotDefined()
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
