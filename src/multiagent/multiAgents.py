@@ -296,7 +296,50 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        def max_value(gameState: GameState, depth):
+            if gameState.isWin() or gameState.isLose() or depth == 0:
+                return self.evaluationFunction(gameState)
+            else:
+                # pdb.set_trace()
+                v = -float('inf')
+                legalmoves = gameState.getLegalActions(0)
+                for action in legalmoves:
+                    successorGameState = gameState.generateSuccessor(0, action)
+                    v = max(v, exp_value(successorGameState, depth - 1, gameState.getNumAgents() - 1))
+                # pdb.set_trace()
+                return v
+
+        def exp_value(gameState: GameState, depth, left_agent_num):
+            # pdb.set_trace()
+            if gameState.isWin() or gameState.isLose() or (depth == 0 and left_agent_num == 0):
+                return self.evaluationFunction(gameState)
+            else:
+                v = 0
+                agent_index = gameState.getNumAgents() - left_agent_num
+                legalmoves = gameState.getLegalActions(agent_index)
+                num = len(legalmoves)
+                p = 1/num
+                for action in legalmoves:
+                    successorGameState = gameState.generateSuccessor(agent_index, action)
+                    if left_agent_num == 1:
+                        v += p * max_value(successorGameState, depth)
+                    else:
+                        v += p * exp_value(successorGameState, depth, left_agent_num - 1)
+                # pdb.set_trace()
+                return v
+
+        depth = self.depth
+        Value_List = []
+        Action_List = gameState.getLegalActions(0)
+        for action in Action_List:
+            successorGameState = gameState.generateSuccessor(0, action)
+            Value_List.append(exp_value(successorGameState, depth - 1, gameState.getNumAgents() - 1))
+        best = max(Value_List)
+        Indices = [index for index in range(len(Value_List)) if Value_List[index] == best]
+        chosenIndex = Indices[0]
+        # pdb.set_trace()
+        return Action_List[chosenIndex]
+        # util.raiseNotDefined()
 
 def betterEvaluationFunction(currentGameState: GameState):
     """
@@ -306,7 +349,56 @@ def betterEvaluationFunction(currentGameState: GameState):
     DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    Pos = currentGameState.getPacmanPosition()
+    Food = currentGameState.getFood()
+    GhostStates = currentGameState.getGhostStates()
+    baseScore = currentGameState.getScore()
+    Food_num = len(Food.asList())
+
+    # pdb.set_trace()
+
+    ghost_dis_List = []
+    food_dis_List = []
+
+    value = 0
+    g_value = 0
+
+    for item in GhostStates:
+        float_ghost_state = tuple(float(x) for x in item.getPosition())
+        g_distance = abs(float(Pos[0]) - float_ghost_state[0]) + abs(float(Pos[1]) - float_ghost_state[1])
+        ghost_dis_List.append(g_distance)
+
+    for food in Food.asList():
+        distance = abs(Pos[0] - food[0]) + abs(Pos[1] - food[1])
+        food_dis_List.append(distance)
+
+    if food_dis_List:
+        if min(food_dis_List) == 1:
+            value = 20
+        elif 1 < min(food_dis_List) <= 3:
+            value = 15
+        elif 3 < min(food_dis_List) <= 5:
+            value = 10
+        elif 5 < min(food_dis_List) <= 10:
+            value = 5
+        else:
+            value = 0
+
+    if ghost_dis_List:
+        if min(ghost_dis_List) == 1:
+            g_value = -10
+        elif 1 < min(ghost_dis_List) <= 3:
+            g_value = 0
+        elif 3 < min(ghost_dis_List) <= 5:
+            g_value = 10
+        elif 5 < min(ghost_dis_List) <= 10:
+            g_value = 15
+        else:
+            g_value = 20
+
+    # pdb.set_trace()
+    return baseScore + g_value + value
+    # util.raiseNotDefined()
 
 # Abbreviation
 better = betterEvaluationFunction
